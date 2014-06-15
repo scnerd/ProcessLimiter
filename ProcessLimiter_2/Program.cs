@@ -19,7 +19,7 @@ namespace ProcessLimiter_2
 
         static void Main(string[] args)
         {
-            limiter = new Limiter();
+            limiter = new Limiter(false);
             LoadGroups();
 
             Delegate nullAction = new Action(() => { });
@@ -28,29 +28,36 @@ namespace ProcessLimiter_2
             Action<Group> initEditGroupMenu = new Action<Group>((g) =>
                 {
                     editGroupMenu.Clear();
+                    editGroupMenu.AddItem(new MenuLabel("=== Editing group: " + g.Name + " ==="));
                     editGroupMenu.AddItem('l', "Display group summary", new Action(() => dispGroup(g)));
                     editGroupMenu.AddItem('p', "Add process to group", new Action(() => addProcToGroup(g)));
                     editGroupMenu.AddItem('r', "Remove process from group", new Action(() => rmvProcFromGroup(g)));
                     editGroupMenu.AddItem('t', "Set group time limit", new Action(() => setGroupTimeLimit(g)));
                     editGroupMenu.AddItem('a', "Set group start time", new Action(() => setGroupStartTime(g)));
                     editGroupMenu.AddItem('b', "Set group end time", new Action(() => setGroupEndTime(g)));
-                    editGroupMenu.AddItem('q', "Finish editing", editGroupMenu.CloseSelf);
+                    editGroupMenu.AddItem('q', "Finish editing", new Action(() => { SaveGroups(); editGroupMenu.CloseSelf(); }));
                 });
 
             groupMenu = new Menu(Console.Out, Console.In, true);
             Action initGroupMenu = new Action(() =>
                 {
+                    LoadGroups();
                     groupMenu.Clear();
                     groupMenu.AddItem('l', "List groups", new Action(listGroups));
-                    groupMenu.AddItem('a', "Add group", new Action(addGroup));
+                    groupMenu.AddItem('a', "Add group", new Action(() => { initEditGroupMenu(addGroup()); editGroupMenu.Run(); }));
                     groupMenu.AddItem('e', "Edit group", new Action(() =>
                     {
+                        for (int i = 0; i < groups.Count; i++)
+                        {
+                            groupMenu.PrintLine(i + ". " + groups[i].Name);
+                        }
                         int g = groupMenu.RequestIntInRange(0, groups.Count, -1);
                         initEditGroupMenu(groups[g]);
                         editGroupMenu.Run();
                     }));
                     groupMenu.AddItem('d', "Delete group", new Action(rmvGroup));
                     groupMenu.AddItem('q', "Return to main menu", groupMenu.CloseSelf);
+                    SaveGroups();
                 });
 
             procMenu = new Menu(Console.Out, Console.In, true);
@@ -58,9 +65,7 @@ namespace ProcessLimiter_2
             {
                 procMenu.Clear();
                 procMenu.AddItem('s', "Show available processes", new Action(dispRunningProcs));
-                procMenu.AddItem('l', "List processes", new Action(listProcs));
-                procMenu.AddItem('a', "Add process", new Action(addProc));
-                procMenu.AddItem('d', "Remove process", new Action(rmvProc));
+                procMenu.AddItem('l', "List used processes", new Action(listProcs));
                 procMenu.AddItem('q', "Return to main menu", procMenu.CloseSelf);
             });
 
@@ -78,69 +83,108 @@ namespace ProcessLimiter_2
             limiter.StopThreaded();
         }
 
-        private static void setGroupEndTime(Group obj)
+        private static void setGroupEndTime(Group g)
         {
-            throw new NotImplementedException();
+            int h = editGroupMenu.RequestIntInRange(0, 24, -1, Message: "Hour:");
+            if (h != -1)
+                g.EndTime = new TimeSpan(h,
+                    editGroupMenu.RequestIntInRange(0, 60, null, Message: "Minute:"), 0);
+            else
+                g.EndTime = null;
+
+            editGroupMenu.PrintLine(h == -1 ? "End time cleared" : string.Format("End time set to {0}:{1}", g.EndTime.Value.Hours, g.EndTime.Value.Minutes));
         }
 
-        private static void setGroupStartTime(Group obj)
+        private static void setGroupStartTime(Group g)
         {
-            throw new NotImplementedException();
+            int h = editGroupMenu.RequestIntInRange(0, 24, -1, Message: "Hour:");
+            if (h != -1)
+                g.StartTime = new TimeSpan(h,
+                    editGroupMenu.RequestIntInRange(0, 60, null, Message: "Minute:"), 0);
+            else
+                g.StartTime = null;
+
+            editGroupMenu.PrintLine(h == -1 ? "Start time cleared" : string.Format("Start time set to {0}:{1}", g.StartTime.Value.Hours, g.StartTime.Value.Minutes));
         }
 
-        private static void setGroupTimeLimit(Group obj)
+        private static void setGroupTimeLimit(Group g)
         {
-            throw new NotImplementedException();
+            int h = editGroupMenu.RequestIntInRange(0, 24, -1, Message: "Hours:");
+            if (h != -1)
+                g.TimeLimit = new TimeSpan(h,
+                    editGroupMenu.RequestIntInRange(0, 60, null, Message: "Minutes:"), 0);
+            else
+                g.TimeLimit = null;
+
+            editGroupMenu.PrintLine(h == -1 ? "Time limit cleared" : string.Format("Time limit set to {0}:{1}", g.TimeLimit.Value.Hours, g.TimeLimit.Value.Minutes));
         }
 
-        private static void rmvProcFromGroup(Group obj)
+        private static void rmvProcFromGroup(Group g)
         {
-            throw new NotImplementedException();
+            for (int i = 0; i < g.ProcessNames.Count; i++)
+            {
+                editGroupMenu.PrintLine(i + ". " + g.ProcessNames[i]);
+            }
+            int ind = editGroupMenu.RequestIntInRange(0, g.ProcessNames.Count, -1);
+            if(ind >= 0)
+                g.ProcessNames.RemoveAt(ind);
         }
 
-        private static void addProcToGroup(Group obj)
+        private static void addProcToGroup(Group g)
         {
-            throw new NotImplementedException();
+            g.ProcessNames.Add(editGroupMenu.RequestString(Message: "Input the process name (wildcards allowed):"));
         }
 
-        private static void dispGroup(Group obj)
+        private static void dispGroup(Group g)
         {
-            throw new NotImplementedException();
+            editGroupMenu.PrintLine("Name:  " + g.Name);
+            editGroupMenu.PrintLine("Limit: " + (g.TimeLimit == null ? "None" : g.TimeLimit.Value.Hours + ":" + g.TimeLimit.Value.Minutes));
+            editGroupMenu.PrintLine("Start: " + (g.StartTime == null ? "None" : g.StartTime.Value.Hours + ":" + g.StartTime.Value.Minutes));
+            editGroupMenu.PrintLine("End:   " + (g.EndTime == null ? "None" : g.EndTime.Value.Hours + ":" + g.EndTime.Value.Minutes));
+            foreach (var proc in g.ProcessNames)
+            {
+                editGroupMenu.PrintLine("Proc:  " + proc);
+            }
         }
 
         private static void rmvGroup()
         {
-            throw new NotImplementedException();
+            for (int i = 0; i < groups.Count; i++)
+            {
+                groupMenu.PrintLine(i + ". " + groups[i].Name);
+            }
+            int ind = groupMenu.RequestIntInRange(0, groups.Count, -1);
+            if (ind >= 0)
+                groups.RemoveAt(ind);
         }
 
-        private static void addGroup()
+        private static Group addGroup()
         {
-            throw new NotImplementedException();
+            Group g = new Group(groupMenu.RequestString(Message: "Group Name:"));
+            groups.Add(g);
+            return g;
         }
 
         private static void listGroups()
         {
-            throw new NotImplementedException();
+            foreach (var g in groups)
+            {
+                groupMenu.PrintLine(g.Name);
+            }
         }
 
         private static void dispRunningProcs()
         {
-            throw new NotImplementedException();
-        }
-
-        private static void rmvProc()
-        {
-            throw new NotImplementedException();
-        }
-
-        private static void addProc()
-        {
-            throw new NotImplementedException();
+            foreach (var procName in System.Diagnostics.Process.GetProcesses().Select(p => p.ProcessName).Distinct())
+            {
+                procMenu.PrintLine(procName);
+            }
         }
 
         private static void listProcs()
         {
-            throw new NotImplementedException();
+            foreach (var proc in groups.SelectMany(g => g.ProcessNames).Distinct())
+                procMenu.PrintLine(proc);
         }
 
         private static void LoadGroups()

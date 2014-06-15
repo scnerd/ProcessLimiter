@@ -38,8 +38,12 @@ namespace ProcessLimiterSrvc
 
         private void ResetLimiterPrefs()
         {
-            if(File.Exists(CONFIG_FILE)) {
-                groups = (List<Group>)new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter().Deserialize(File.OpenRead(CONFIG_FILE));
+            if (File.Exists(CONFIG_FILE))
+            {
+                using (var f = File.OpenRead(CONFIG_FILE))
+                {
+                    groups = (List<Group>)new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter().Deserialize(f);
+                }
             }
             else
                 groups = new List<Group>();
@@ -50,6 +54,7 @@ namespace ProcessLimiterSrvc
             if (monitoring)
             {
                 Console.WriteLine(e.ToString());
+                var val = e.NewEvent.GetPropertyValue("TargetInstance");
             }
         }
 
@@ -58,6 +63,7 @@ namespace ProcessLimiterSrvc
             if (monitoring)
             {
                 Console.WriteLine(e.ToString());
+                var val = e.NewEvent.GetPropertyValue("TargetInstance");
             }
         }
 

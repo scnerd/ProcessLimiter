@@ -11,8 +11,12 @@ namespace ProcessLimiterSrvc
     [Serializable]
     public class Group
     {
+        public Group(string Name)
+        { this.Name = Name; }
+
         public readonly List<string> ProcessNames = new List<string>();
         public TimeSpan? TimeLimit = null;
         public TimeSpan? StartTime = null, EndTime = null;
+        public readonly string Name = "";
     }
 }
