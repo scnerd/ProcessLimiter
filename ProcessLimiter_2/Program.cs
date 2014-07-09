@@ -31,12 +31,13 @@ namespace ProcessLimiter_2
                     editGroupMenu.AddItem(new MenuLabel("=== Editing group: " + g.Name + " ==="));
                     editGroupMenu.AddItem('l', "Display group summary", new Action(() => dispGroup(g)));
                     editGroupMenu.AddItem('p', "Add process to group", new Action(() => addProcToGroup(g)));
-                    editGroupMenu.AddItem('r', "Remove process from group", new Action(() => rmvProcFromGroup(g)));
+                    editGroupMenu.AddItem('x', "Remove process from group", new Action(() => rmvProcFromGroup(g)));
                     editGroupMenu.AddItem('t', "Set group time limit", new Action(() => setGroupTimeLimit(g)));
                     editGroupMenu.AddItem('a', "Set group start time", new Action(() => setGroupStartTime(g)));
                     editGroupMenu.AddItem('b', "Set group end time", new Action(() => setGroupEndTime(g)));
                     editGroupMenu.AddItem('s', "Show currently running processes", new Action(() => dispGroupRunningProcs(g)));
                     editGroupMenu.AddItem('u', "Update the group status", new Action(() => updateGroup(g)));
+                    editGroupMenu.AddItem('r', "Reset the group's timers", new Action(() => resetGroupTime(g)));
                     editGroupMenu.AddItem('q', "Finish editing", new Action(() => { SaveGroups(); editGroupMenu.CloseSelf(); }));
                 });
 
@@ -143,6 +144,7 @@ namespace ProcessLimiter_2
             editGroupMenu.PrintLine("Limit: " + (g.TimeLimit == null ? "None" : g.TimeLimit.Value.Hours + ":" + g.TimeLimit.Value.Minutes));
             editGroupMenu.PrintLine("Start: " + (g.StartTime == null ? "None" : g.StartTime.Value.Hours + ":" + g.StartTime.Value.Minutes));
             editGroupMenu.PrintLine("End:   " + (g.EndTime == null ? "None" : g.EndTime.Value.Hours + ":" + g.EndTime.Value.Minutes));
+            editGroupMenu.PrintLine("Left:  " + (g.RemainingTime == null ? "Unknown" : g.RemainingTime.Value.Hours + ":" + g.RemainingTime.Value.Minutes));
             foreach (var proc in g.ProcessNames)
             {
                 editGroupMenu.PrintLine("Proc:  " + proc);
@@ -160,6 +162,11 @@ namespace ProcessLimiter_2
             g.Update();
         }
 
+        private static void resetGroupTime(Group g)
+        {
+            g.ResetRemainingTime();
+        }
+
         private static void rmvGroup()
         {
             for (int i = 0; i < groups.Count; i++)
@@ -174,6 +181,7 @@ namespace ProcessLimiter_2
         private static Group addGroup()
         {
             Group g = new Group(groupMenu.RequestString(Message: "Group Name:"));
+            g.Initialize();
             groups.Add(g);
             return g;
         }
@@ -210,6 +218,8 @@ namespace ProcessLimiter_2
                     {
                         groups = (List<Group>)new BinaryFormatter().Deserialize(stream);
                     }
+                    foreach (var g in groups)
+                        g.Initialize();
                     return;
                 }
                 catch { }

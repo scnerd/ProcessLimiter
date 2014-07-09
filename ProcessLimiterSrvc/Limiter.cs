@@ -55,10 +55,14 @@ namespace ProcessLimiterSrvc
         private void ResetLimiterPrefs()
         {
             if (File.Exists(CONFIG_FILE))
+            {
                 using (var f = File.OpenRead(CONFIG_FILE))
                 {
                     groups = (List<Group>)new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter().Deserialize(f);
                 }
+                foreach (var g in groups)
+                    g.Initialize();
+            }
             else
                 groups = new List<Group>();
         }
