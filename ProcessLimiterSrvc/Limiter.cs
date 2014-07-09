@@ -17,10 +17,12 @@ namespace ProcessLimiterSrvc
     public partial class Limiter : ServiceBase
     {
         public const string CONFIG_FILE = "config.xml";
+        public const double UPDATE_INTERVAL = 60000;
 
         private ManagementEventWatcher starter, stopper;
         private bool monitoring = true;
         private readonly bool debugMode;
+        private System.Timers.Timer timer = new System.Timers.Timer(UPDATE_INTERVAL);
 
         List<Group> groups;
 
@@ -30,46 +32,43 @@ namespace ProcessLimiterSrvc
             ResetLimiterPrefs();
             starter = new ManagementEventWatcher("SELECT TargetInstance FROM __InstanceCreationEvent WITHIN 1 WHERE TargetInstance isa 'Win32_Process'");
             stopper = new ManagementEventWatcher("SELECT TargetInstance FROM __InstanceDeletionEvent WITHIN 1 WHERE TargetInstance isa 'Win32_Process'");
-            starter.EventArrived += onEventStart;
-            stopper.EventArrived += onEventStop;
+            starter.EventArrived += (s,e) => onProcessEvent(e);
+            stopper.EventArrived += (s,e) => onProcessEvent(e);
 
             debugMode = !ServiceMode;
+
+            timer.Elapsed += (s, e) => UpdateProcesses();
+        }
+
+        private void onProcessEvent(EventArrivedEventArgs e)
+        {
+            UpdateProcesses();
+        }
+
+        private void UpdateProcesses()
+        {
+            if (monitoring)
+                foreach (var group in groups)
+                    group.Update();
         }
 
         private void ResetLimiterPrefs()
         {
             if (File.Exists(CONFIG_FILE))
-            {
                 using (var f = File.OpenRead(CONFIG_FILE))
                 {
                     groups = (List<Group>)new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter().Deserialize(f);
                 }
-            }
             else
                 groups = new List<Group>();
         }
 
-        void onEventStart(object sender, EventArrivedEventArgs e)
-        {
-            if (monitoring)
-            {
-                Console.WriteLine(e.ToString());
-                var val = e.NewEvent.GetPropertyValue("TargetInstance");
-            }
-        }
 
-        void onEventStop(object sender, EventArrivedEventArgs e)
-        {
-            if (monitoring)
-            {
-                Console.WriteLine(e.ToString());
-                var val = e.NewEvent.GetPropertyValue("TargetInstance");
-            }
-        }
 
         protected override void OnStart(string[] args)
         {
             monitoring = true;
+            timer.Start();
             starter.Start();
             stopper.Start();
         }
@@ -77,6 +76,7 @@ namespace ProcessLimiterSrvc
         protected override void OnStop()
         {
             monitoring = false;
+            timer.Stop();
             starter.Stop();
             stopper.Stop();
         }

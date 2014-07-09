@@ -35,6 +35,8 @@ namespace ProcessLimiter_2
                     editGroupMenu.AddItem('t', "Set group time limit", new Action(() => setGroupTimeLimit(g)));
                     editGroupMenu.AddItem('a', "Set group start time", new Action(() => setGroupStartTime(g)));
                     editGroupMenu.AddItem('b', "Set group end time", new Action(() => setGroupEndTime(g)));
+                    editGroupMenu.AddItem('s', "Show currently running processes", new Action(() => dispGroupRunningProcs(g)));
+                    editGroupMenu.AddItem('u', "Update the group status", new Action(() => updateGroup(g)));
                     editGroupMenu.AddItem('q', "Finish editing", new Action(() => { SaveGroups(); editGroupMenu.CloseSelf(); }));
                 });
 
@@ -145,6 +147,17 @@ namespace ProcessLimiter_2
             {
                 editGroupMenu.PrintLine("Proc:  " + proc);
             }
+        }
+
+        private static void dispGroupRunningProcs(Group g)
+        {
+            foreach (var proc in g.RunningProcs)
+                editGroupMenu.PrintLine("-> " + proc.ProcessName);
+        }
+
+        private static void updateGroup(Group g)
+        {
+            g.Update();
         }
 
         private static void rmvGroup()
