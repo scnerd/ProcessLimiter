@@ -14,12 +14,18 @@ namespace ProcessLimiter_2
     class Program
     {
         private static List<Group> groups;
+#if DEBUG
         private static Limiter limiter;
+#endif
         private static Menu editGroupMenu, groupMenu, procMenu;
 
         static void Main(string[] args)
         {
+#if DEBUG
             limiter = new Limiter(false);
+#else
+            //limiter = new Limiter(true);
+#endif
             LoadGroups();
 
             Delegate nullAction = new Action(() => { });
@@ -32,6 +38,8 @@ namespace ProcessLimiter_2
                     editGroupMenu.AddItem('l', "Display group summary", new Action(() => dispGroup(g)));
                     editGroupMenu.AddItem('p', "Add process to group", new Action(() => addProcToGroup(g)));
                     editGroupMenu.AddItem('x', "Remove process from group", new Action(() => rmvProcFromGroup(g)));
+                    editGroupMenu.AddItem('d', "Add directory to group", new Action(() => addDirToGroup(g)));
+                    editGroupMenu.AddItem('m', "Remove directory from group", new Action(() => rmvDirFromGroup(g)));
                     editGroupMenu.AddItem('t', "Set group time limit", new Action(() => setGroupTimeLimit(g)));
                     editGroupMenu.AddItem('a', "Set group start time", new Action(() => setGroupStartTime(g)));
                     editGroupMenu.AddItem('b', "Set group end time", new Action(() => setGroupEndTime(g)));
@@ -73,25 +81,31 @@ namespace ProcessLimiter_2
             });
 
             Menu mainMenu = new Menu(Console.Out, Console.In, true);
+#if DEBUG
             mainMenu.AddItem('t', "Check status of limiter service", new Action(() => mainMenu.PrintLine(limiter.Status)));
             mainMenu.AddItem('s', "Start limiter service", new Action(limiter.StartThreaded));
             mainMenu.AddItem('x', "Stop limiter service", new Action(limiter.StopThreaded));
             mainMenu.AddItem('r', "Refresh limiter service settings", new Action(() => limiter.Command(LIMITER_COMMAND.REFRESH)));
+#endif
             mainMenu.AddItem('g', "Edit group settings", new Action(() => { initGroupMenu(); groupMenu.Run(); }));
             mainMenu.AddItem('p', "Edit process settings", new Action(() => { initProcMenu(); procMenu.Run(); }));
             mainMenu.AddItem('q', "Quit Process Limiter Manager", mainMenu.CloseSelf);
 
+#if DEBUG
             limiter.StartThreaded();
             mainMenu.Run();
             limiter.StopThreaded();
+#else
+            mainMenu.Run();
+#endif
         }
 
         private static void setGroupEndTime(Group g)
         {
-            int h = editGroupMenu.RequestIntInRange(0, 24, -1, Message: "Hour:");
+            int h = editGroupMenu.RequestIntInRange(0, 24, -1, Message: "Last hour allowed (0-23) [-1 for no limit]:");
             if (h != -1)
                 g.EndTime = new TimeSpan(h,
-                    editGroupMenu.RequestIntInRange(0, 60, null, Message: "Minute:"), 0);
+                    editGroupMenu.RequestIntInRange(0, 60, null, Message: "Last minute allowed (0-59):"), 0);
             else
                 g.EndTime = null;
 
@@ -100,10 +114,10 @@ namespace ProcessLimiter_2
 
         private static void setGroupStartTime(Group g)
         {
-            int h = editGroupMenu.RequestIntInRange(0, 24, -1, Message: "Hour:");
+            int h = editGroupMenu.RequestIntInRange(0, 24, -1, Message: "First hour allowed (0-23) [-1 for no limit]:");
             if (h != -1)
                 g.StartTime = new TimeSpan(h,
-                    editGroupMenu.RequestIntInRange(0, 60, null, Message: "Minute:"), 0);
+                    editGroupMenu.RequestIntInRange(0, 60, null, Message: "First minute allowed (0-59):"), 0);
             else
                 g.StartTime = null;
 
@@ -112,10 +126,10 @@ namespace ProcessLimiter_2
 
         private static void setGroupTimeLimit(Group g)
         {
-            int h = editGroupMenu.RequestIntInRange(0, 24, -1, Message: "Hours:");
+            int h = editGroupMenu.RequestIntInRange(0, 24, -1, Message: "Number of hours to allow (0-23) [-1 for no limit]:");
             if (h != -1)
                 g.TimeLimit = new TimeSpan(h,
-                    editGroupMenu.RequestIntInRange(0, 60, null, Message: "Minutes:"), 0);
+                    editGroupMenu.RequestIntInRange(0, 60, null, Message: "Number of minutes to allow (0-59):"), 0);
             else
                 g.TimeLimit = null;
 
@@ -138,6 +152,22 @@ namespace ProcessLimiter_2
             g.ProcessNames.Add(editGroupMenu.RequestString(Message: "Input the process name (wildcards allowed):"));
         }
 
+        private static void rmvDirFromGroup(Group g)
+        {
+            for (int i = 0; i < g.ProcessNames.Count; i++)
+            {
+                editGroupMenu.PrintLine(i + ". " + g.DirectoryNames[i]);
+            }
+            int ind = editGroupMenu.RequestIntInRange(0, g.DirectoryNames.Count, -1);
+            if (ind >= 0)
+                g.DirectoryNames.RemoveAt(ind);
+        }
+
+        private static void addDirToGroup(Group g)
+        {
+            g.DirectoryNames.Add(editGroupMenu.RequestString(Message: "Input the directory name (wildcards allowed):"));
+        }
+
         private static void dispGroup(Group g)
         {
             editGroupMenu.PrintLine("Name:  " + g.Name);
@@ -148,6 +178,10 @@ namespace ProcessLimiter_2
             foreach (var proc in g.ProcessNames)
             {
                 editGroupMenu.PrintLine("Proc:  " + proc);
+            }
+            foreach (var dir in g.DirectoryNames)
+            {
+                editGroupMenu.PrintLine("Dir:  " + dir);
             }
         }
 

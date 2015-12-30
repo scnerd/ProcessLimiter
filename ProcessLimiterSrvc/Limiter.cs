@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Management;
 using System.IO;
+using System.Threading;
 
 namespace ProcessLimiterSrvc
 {
@@ -17,12 +18,14 @@ namespace ProcessLimiterSrvc
     public partial class Limiter : ServiceBase
     {
         public const string CONFIG_FILE = "config.xml";
-        public const double UPDATE_INTERVAL = 60000;
+        public const int UPDATE_INTERVAL = 5000;
 
         private ManagementEventWatcher starter, stopper;
         private bool monitoring = true;
         private readonly bool debugMode;
-        private System.Timers.Timer timer = new System.Timers.Timer(UPDATE_INTERVAL);
+        private Timer timer;
+
+        private ManualResetEventSlim handle = new ManualResetEventSlim();
 
         List<Group> groups;
 
@@ -37,15 +40,20 @@ namespace ProcessLimiterSrvc
 
             debugMode = !ServiceMode;
 
-            timer.Elapsed += (s, e) => UpdateProcesses();
+            timer = new Timer(UpdateProcesses, this, Timeout.Infinite, UPDATE_INTERVAL);
+        }
+
+        internal void Join()
+        {
+            handle.Wait();
         }
 
         private void onProcessEvent(EventArrivedEventArgs e)
         {
-            UpdateProcesses();
+            UpdateProcesses(this);
         }
 
-        private void UpdateProcesses()
+        private void UpdateProcesses(object state)
         {
             if (monitoring)
                 foreach (var group in groups)
@@ -71,8 +79,9 @@ namespace ProcessLimiterSrvc
 
         protected override void OnStart(string[] args)
         {
+            handle.Reset();
             monitoring = true;
-            timer.Start();
+            timer.Change(0, UPDATE_INTERVAL);
             starter.Start();
             stopper.Start();
         }
@@ -80,17 +89,18 @@ namespace ProcessLimiterSrvc
         protected override void OnStop()
         {
             monitoring = false;
-            timer.Stop();
+            timer.Change(Timeout.Infinite, UPDATE_INTERVAL);
             starter.Stop();
             stopper.Stop();
+            handle.Set();
         }
 
         public void StartThreaded()
         {
-            if (debugMode)
-            {
+            //if (debugMode)
+            //{
                 this.OnStart(null);
-            }
+            //}
         }
 
         public void Command(int Command)
@@ -100,18 +110,18 @@ namespace ProcessLimiterSrvc
 
         public void Command(LIMITER_COMMAND Command)
         {
-            if (debugMode)
-            {
+            //if (debugMode)
+            //{
                 this.Command((int)Command);
-            }
+            //}
         }
 
         public void StopThreaded()
         {
-            if (debugMode)
-            {
+            //if (debugMode)
+            //{
                 this.OnStop();
-            }
+            //}
         }
 
         public string Status
